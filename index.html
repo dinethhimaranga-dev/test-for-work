@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>CYBER DROP - Telegram Mini App Airdrop</title>
+  
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cyber: {
+              bg: '#0a0d14',
+              card: '#121824',
+              border: '#1f293d',
+              neonCyan: '#00f0ff',
+              neonPurple: '#a855f7',
+              neonGold: '#f59e0b',
+              accent: '#3b82f6'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif']
+          },
+          animation: {
+            'float': 'float 4s ease-in-out infinite',
+            'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+            'spin-slow': 'spin 12s linear infinite',
+            'bounce-gentle': 'bounceGentle 2s infinite'
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0px)' },
+              '50%': { transform: 'translateY(-12px)' }
+            },
+            pulseGlow: {
+              '0%, 100%': { opacity: '0.4', filter: 'drop-shadow(0 0 15px rgba(0, 240, 255, 0.6))' },
+              '50%': { opacity: '0.9', filter: 'drop-shadow(0 0 28px rgba(168, 85, 247, 0.9))' }
+            },
+            bounceGentle: {
+              '0%, 100%': { transform: 'translateY(-3%)', animationTimingFunction: 'cubic-bezier(0.8,0,1,1)' },
+              '50%': { transform: 'translateY(0)', animationTimingFunction: 'cubic-bezier(0,0,0.2,1)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons & Canvas Confetti -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <!-- Google Fonts: Inter & Orbitron -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0a0d14;
+      color: #f3f4f6;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow-x: hidden;
+      touch-action: manipulation;
+    }
+
+    .font-orbitron {
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    /* Glowing Text and Borders */
+    .glow-cyan {
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.35);
+    }
+    .glow-purple {
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.35);
+    }
+    .glow-gold {
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.35);
+    }
+    .text-glow-cyan {
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.7);
+    }
+    .text-glow-gold {
+      text-shadow: 0 0 10px rgba(245, 158, 11, 0.7);
+    }
+
+    /* Glassmorphism */
+    .glass-card {
+      background: rgba(18, 24, 36, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .glass-card-interactive {
+      background: rgba(22, 30, 46, 0.8);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.2s ease;
+    }
+    .glass-card-interactive:active {
+      transform: scale(0.98);
+      background: rgba(30, 41, 59, 0.9);
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0a0d14;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1f293d;
+      border-radius: 4px;
+    }
+
+    /* Tap Floating Text Animations */
+    @keyframes tapPop {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-70px) scale(1.4); }
+    }
+    .tap-floating-text {
+      position: absolute;
+      pointer-events: none;
+      animation: tapPop 0.8s forwards ease-out;
+      font-weight: 800;
+      color: #00f0ff;
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.8);
+      font-family: 'Orbitron', sans-serif;
+      z-index: 50;
+    }
+
+    /* Dynamic Canvas Background */
+    #particle-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-screen text-slate-100 pb-24 max-w-md mx-auto relative border-x border-slate-800/40 shadow-2xl">
+
+  <!-- Background Particle Canvas -->
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- Notification Banner Overlay -->
+  <div id="toast-banner" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm glass-card border border-cyan-500/40 rounded-2xl p-3.5 flex items-center gap-3 transform -translate-y-24 opacity-0 transition-all duration-300 shadow-2xl pointer-events-none">
+    <div class="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 shrink-0">
+      <i data-lucide="sparkles" class="w-5 h-5"></i>
+    </div>
+    <div class="flex-1 min-w-0">
+      <p id="toast-title" class="text-xs font-bold text-cyan-300 uppercase tracking-wider">Reward Claimed!</p>
+      <p id="toast-msg" class="text-xs text-slate-300 truncate">+1,000 $CYBER tokens added</p>
+    </div>
+  </div>
+
+  <!-- MAIN WRAPPER -->
+  <div class="relative z-10 flex-1 flex flex-col px-4 pt-3 space-y-4">
+
+    <!-- 1. HEADER / PROFILE BAR -->
+    <header class="glass-card rounded-2xl p-3.5 flex items-center justify-between border border-slate-700/50 shadow-lg">
+      <div class="flex items-center gap-3">
+        <div class="relative">
+          <div class="w-11 h-11 rounded-full bg-gradient-to-tr from-cyan-500 via-purple-500 to-amber-400 p-0.5">
+            <img id="user-avatar" src="https://placehold.co/100x100/0f172a/00f0ff?text=TG" alt="User Avatar" class="w-full h-full rounded-full object-cover">
+          </div>
+          <span class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-900 rounded-full"></span>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <h2 id="username-display" class="font-bold text-sm text-slate-100">CyberHunter</h2>
+            <span class="bg-cyan-500/20 text-cyan-300 text-[10px] font-bold px-1.5 py-0.5 rounded border border-cyan-500/30">VIP 1</span>
+          </div>
+          <p class="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+            <i data-lucide="shield-check" class="w-3 h-3 text-emerald-400"></i> Verified Hunter
+          </p>
+        </div>
+      </div>
+
+      <!-- Wallet Button -->
+      <button id="connect-wallet-btn" onclick="openWalletModal()" class="flex items-center gap-1.5 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 hover:from-cyan-500/30 hover:to-purple-500/30 border border-cyan-500/40 text-cyan-300 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all active:scale-95 shadow-md">
+        <i data-lucide="wallet" class="w-3.5 h-3.5"></i>
+        <span id="wallet-btn-text">Connect</span>
+      </button>
+    </header>
+
+    <!-- BALANCE DISPLAY CARD -->
+    <div class="glass-card rounded-2xl p-4 text-center relative overflow-hidden border border-cyan-500/30 glow-cyan">
+      <div class="absolute -top-10 -right-10 w-28 h-28 bg-cyan-500/10 rounded-full blur-2xl"></div>
+      <div class="absolute -bottom-10 -left-10 w-28 h-28 bg-purple-500/10 rounded-full blur-2xl"></div>
+      
+      <p class="text-xs uppercase tracking-widest text-slate-400 font-semibold mb-1">Total Earned Balance</p>
+      <div class="flex items-center justify-center gap-2">
+        <i data-lucide="zap" class="w-7 h-7 text-amber-400 fill-amber-400 animate-pulse"></i>
+        <span id="total-balance" class="text-3xl font-extrabold font-orbitron bg-gradient-to-r from-cyan-400 via-purple-300 to-amber-300 bg-clip-text text-transparent">
+          24,850
+        </span>
+        <span class="text-xs font-bold text-cyan-400 tracking-wider"> $CYBER</span>
+      </div>
+      <p class="text-[11px] text-slate-400 mt-1">Est. Listing Value: <span id="est-value" class="text-emerald-400 font-semibold">$124.25 USDT</span></p>
+    </div>
+
+    <!-- VIEW SECTIONS CONTAINER (TAB DRIVEN) -->
+
+    <!-- ==================== HOME / AIRDROP TAB ==================== -->
+    <section id="tab-home" class="tab-content space-y-4">
+      
+      <!-- HERO AIRDROP TOKEN CARD -->
+      <div class="glass-card rounded-2xl p-5 text-center relative overflow-hidden border border-slate-700/60">
+        <!-- Live Countdown Header -->
+        <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+          <div class="flex items-center gap-1.5 text-xs text-slate-300 font-medium">
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            Airdrop Snapshot
+          </div>
+          <!-- Timer -->
+          <div id="countdown-timer" class="flex items-center gap-1 font-orbitron text-xs text-amber-400 font-bold bg-amber-400/10 border border-amber-400/30 px-2.5 py-1 rounded-lg">
+            <span id="cd-days">14</span>d : <span id="cd-hours">08</span>h : <span id="cd-mins">42</span>m : <span id="cd-secs">19</span>s
+          </div>
+        </div>
+
+        <!-- Interactive Tap 3D Badge -->
+        <div class="relative py-2 flex justify-center items-center">
+          <div class="absolute w-44 h-44 rounded-full bg-cyan-500/20 blur-xl animate-pulse-glow"></div>
+          
+          <!-- Tap Circle Token -->
+          <div id="tap-token" onclick="handleTokenTap(event)" class="relative w-36 h-36 rounded-full bg-gradient-to-br from-cyan-500 via-purple-600 to-amber-400 p-1 shadow-2xl cursor-pointer transform transition-transform active:scale-95 animate-float select-none">
+            <div class="w-full h-full rounded-full bg-slate-950 flex flex-col items-center justify-center relative overflow-hidden border border-cyan-300/30">
+              <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-cyan-500/20 via-transparent to-transparent"></div>
+              <i data-lucide="hexagon" class="w-14 h-14 text-cyan-400 stroke-[1.5] animate-spin-slow"></i>
+              <span class="font-orbitron font-extrabold text-lg text-white mt-1 text-glow-cyan">$CYBER</span>
+              <span class="text-[9px] uppercase tracking-wider text-cyan-300 font-bold mt-0.5">Tap to Mine</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Energy Bar -->
+        <div class="mt-4 space-y-1">
+          <div class="flex justify-between text-xs text-slate-300 font-medium">
+            <span class="flex items-center gap-1"><i data-lucide="battery-charging" class="w-3.5 h-3.5 text-cyan-400"></i> Mining Energy</span>
+            <span id="energy-counter" class="font-bold text-cyan-400">1000 / 1000</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-700">
+            <div id="energy-bar" class="bg-gradient-to-r from-cyan-500 to-purple-500 h-1.5 rounded-full transition-all duration-300" style="width: 100%;"></div>
+          </div>
+        </div>
+
+        <!-- Airdrop Pool Progress -->
+        <div class="mt-4 pt-3 border-t border-slate-800/80 space-y-1.5">
+          <div class="flex justify-between text-xs text-slate-400">
+            <span>Global Airdrop Pool</span>
+            <span class="text-cyan-300 font-bold">78.4% Distributed</span>
+          </div>
+          <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+            <div class="bg-gradient-to-r from-purple-500 via-cyan-400 to-amber-400 h-full rounded-full" style="width: 78.4%;"></div>
+          </div>
+          <div class="flex justify-between text-[10px] text-slate-500">
+            <span>0 $CYBER</span>
+            <span>10,000,000 $CYBER</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- DAILY STREAK STATIONS -->
+      <div class="glass-card rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <i data-lucide="calendar-check-2" class="w-4 h-4 text-amber-400"></i>
+            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-200">Daily Login Streak</h3>
+          </div>
+          <span id="streak-count-tag" class="text-[11px] font-bold bg-amber-400/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-400/30">Day 3</span>
+        </div>
+
+        <!-- 7 Days Grid -->
+        <div class="grid grid-cols-4 gap-2 text-center" id="daily-streak-grid">
+          <!-- Populated by JS dynamically -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==================== TASKS / EARN TAB ==================== -->
+    <section id="tab-tasks" class="tab-content space-y-4 hidden">
+      <div class="glass-card rounded-2xl p-4">
+        <h3 class="font-bold text-sm text-slate-100 flex items-center gap-2 mb-1">
+          <i data-lucide="target" class="w-4 h-4 text-cyan-400"></i> Airdrop Quests Hub
+        </h3>
+        <p class="text-xs text-slate-400">Complete tasks below to qualify for multiplier bonuses.</p>
+
+        <!-- Categories Filters -->
+        <div class="flex gap-2 mt-3 pb-1 overflow-x-auto text-xs no-scrollbar">
+          <button onclick="filterTasks('all')" class="task-tab-btn active bg-cyan-500 text-slate-950 px-3 py-1.5 rounded-xl font-bold transition-all">All</button>
+          <button onclick="filterTasks('social')" class="task-tab-btn bg-slate-800 text-slate-300 px-3 py-1.5 rounded-xl font-medium transition-all">Social</button>
+          <button onclick="filterTasks('onchain')" class="task-tab-btn bg-slate-800 text-slate-300 px-3 py-1.5 rounded-xl font-medium transition-all">On-Chain</button>
+          <button onclick="filterTasks('partner')" class="task-tab-btn bg-slate-800 text-slate-300 px-3 py-1.5 rounded-xl font-medium transition-all">Partners</button>
+        </div>
+      </div>
+
+      <!-- TASK CARDS CONTAINER -->
+      <div id="tasks-container" class="space-y-2.5">
+        <!-- Tasks rendered by JS -->
+      </div>
+    </section>
+
+    <!-- ==================== FRIENDS / REFERRAL TAB ==================== -->
+    <section id="tab-friends" class="tab-content space-y-4 hidden">
+      <!-- Referral Hero Card -->
+      <div class="glass-card rounded-2xl p-5 text-center relative overflow-hidden border border-purple-500/30">
+        <div class="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 mx-auto flex items-center justify-center mb-3 border border-purple-500/30">
+          <i data-lucide="users" class="w-6 h-6"></i>
+        </div>
+        <h3 class="font-bold text-base text-slate-100">Invite Friends & Earn Big!</h3>
+        <p class="text-xs text-slate-400 mt-1">Get <span class="text-amber-400 font-bold">+2,500 $CYBER</span> + 10% of your friend's earnings forever.</p>
+
+        <!-- Referral Stats Grid -->
+        <div class="grid grid-cols-2 gap-2 mt-4">
+          <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+            <p class="text-[10px] text-slate-400 uppercase font-semibold">Total Invited</p>
+            <p id="ref-count" class="text-lg font-bold font-orbitron text-cyan-400 mt-0.5">12</p>
+          </div>
+          <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+            <p class="text-[10px] text-slate-400 uppercase font-semibold">Ref Bonus Earned</p>
+            <p id="ref-bonus" class="text-lg font-bold font-orbitron text-amber-400 mt-0.5">+30,000</p>
+          </div>
+        </div>
+
+        <!-- Referral Action Buttons -->
+        <div class="flex gap-2 mt-4">
+          <button onclick="copyReferralLink()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95">
+            <i data-lucide="copy" class="w-4 h-4 text-cyan-400"></i> Copy Link
+          </button>
+          <button onclick="shareReferralTelegram()" class="flex-1 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 py-2.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95">
+            <i data-lucide="send" class="w-4 h-4"></i> Invite TG Friends
+          </button>
+        </div>
+      </div>
+
+      <!-- Referral Tier Info -->
+      <div class="glass-card rounded-2xl p-4 space-y-3">
+        <h4 class="font-bold text-xs uppercase tracking-wider text-slate-300">Tiered Rewards System</h4>
+        <div class="space-y-2 text-xs">
+          <div class="flex items-center justify-between p-2.5 bg-slate-900/50 rounded-xl border border-slate-800">
+            <div class="flex items-center gap-2.5">
+              <span class="w-6 h-6 rounded-full bg-amber-400/20 text-amber-400 flex items-center justify-center font-bold text-xs">1</span>
+              <div>
+                <p class="font-bold text-slate-200">Regular Friend</p>
+                <p class="text-[10px] text-slate-400">Friend joins via your link</p>
+              </div>
+            </div>
+            <span class="font-orbitron font-bold text-cyan-400">+2,500 $CYBER</span>
+          </div>
+
+          <div class="flex items-center justify-between p-2.5 bg-slate-900/50 rounded-xl border border-slate-800">
+            <div class="flex items-center gap-2.5">
+              <span class="w-6 h-6 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-xs">2</span>
+              <div>
+                <p class="font-bold text-slate-200">Telegram Premium Friend</p>
+                <p class="text-[10px] text-slate-400">Friend has Telegram Premium</p>
+              </div>
+            </div>
+            <span class="font-orbitron font-bold text-amber-400">+10,000 $CYBER</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== LEADERBOARD TAB ==================== -->
+    <section id="tab-leaderboard" class="tab-content space-y-4 hidden">
+      <div class="glass-card rounded-2xl p-4 text-center">
+        <div class="w-10 h-10 rounded-2xl bg-amber-400/20 text-amber-400 mx-auto flex items-center justify-center mb-2 border border-amber-400/30">
+          <i data-lucide="trophy" class="w-5 h-5"></i>
+        </div>
+        <h3 class="font-bold text-sm text-slate-100">Top Airdrop Hunters</h3>
+        <p class="text-xs text-slate-400">Top 100 players receive exclusive TON NFT badges</p>
+      </div>
+
+      <!-- Leaderboard List -->
+      <div class="glass-card rounded-2xl p-3 space-y-2" id="leaderboard-list">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- ==================== WALLET TAB ==================== -->
+    <section id="tab-wallet" class="tab-content space-y-4 hidden">
+      <div class="glass-card rounded-2xl p-5 text-center space-y-3">
+        <div class="w-14 h-14 rounded-full bg-cyan-500/20 text-cyan-400 mx-auto flex items-center justify-center border border-cyan-500/30">
+          <i data-lucide="wallet" class="w-7 h-7"></i>
+        </div>
+        <h3 class="font-bold text-base text-slate-100">Web3 TON Wallet</h3>
+        <p class="text-xs text-slate-400">Connect your TON compatible wallet to receive the final token distribution.</p>
+        
+        <div id="wallet-status-box" class="p-4 bg-slate-900/80 rounded-xl border border-slate-800 text-left space-y-2">
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-slate-400">Connection Status:</span>
+            <span id="wallet-status-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">Not Connected</span>
+          </div>
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-slate-400">Address:</span>
+            <span id="wallet-address-display" class="font-mono text-slate-300">None</span>
+          </div>
+        </div>
+
+        <button onclick="openWalletModal()" class="w-full bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-slate-950 font-extrabold py-3 rounded-xl text-xs uppercase tracking-wider transition-all shadow-lg active:scale-95">
+          Manage Wallet Connection
+        </button>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- BOTTOM NAVIGATION BAR (Telegram Mini App Style) -->
+  <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md glass-card border-t border-slate-800 py-2 px-3 flex justify-around items-center z-40">
+    <button onclick="switchTab('home')" id="nav-home" class="nav-btn active flex flex-col items-center gap-1 text-cyan-400 transition-all">
+      <i data-lucide="home" class="w-5 h-5"></i>
+      <span class="text-[10px] font-bold">Airdrop</span>
+    </button>
+    <button onclick="switchTab('tasks')" id="nav-tasks" class="nav-btn flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 transition-all">
+      <i data-lucide="check-square" class="w-5 h-5"></i>
+      <span class="text-[10px] font-medium">Earn</span>
+    </button>
+    <button onclick="switchTab('friends')" id="nav-friends" class="nav-btn flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 transition-all">
+      <i data-lucide="users" class="w-5 h-5"></i>
+      <span class="text-[10px] font-medium">Friends</span>
+    </button>
+    <button onclick="switchTab('leaderboard')" id="nav-leaderboard" class="nav-btn flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 transition-all">
+      <i data-lucide="trophy" class="w-5 h-5"></i>
+      <span class="text-[10px] font-medium">Top</span>
+    </button>
+    <button onclick="switchTab('wallet')" id="nav-wallet" class="nav-btn flex flex-col items-center gap-1 text-slate-400 hover:text-slate-200 transition-all">
+      <i data-lucide="wallet" class="w-5 h-5"></i>
+      <span class="text-[10px] font-medium">Wallet</span>
+    </button>
+  </nav>
+
+  <!-- WALLET CONNECT MODAL -->
+  <div id="wallet-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 opacity-0 pointer-events-none transition-all duration-300">
+    <div class="glass-card w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 border border-slate-700/80 space-y-4 transform translate-y-12 transition-all duration-300 id-modal-content">
+      <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-sm text-slate-100 flex items-center gap-2">
+          <i data-lucide="shield-check" class="w-4 h-4 text-cyan-400"></i> Connect Web3 Wallet
+        </h3>
+        <button onclick="closeWalletModal()" class="text-slate-400 hover:text-slate-200 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-2.5">
+        <!-- Tonkeeper -->
+        <button onclick="simConnectWallet('Tonkeeper')" class="w-full glass-card-interactive p-3 rounded-2xl flex items-center justify-between border border-slate-700/50">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">TK</div>
+            <div class="text-left">
+              <p class="font-bold text-xs text-slate-100">Tonkeeper</p>
+              <p class="text-[10px] text-slate-400">Popular TON ecosystem wallet</p>
+            </div>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+        </button>
+
+        <!-- Telegram Wallet -->
+        <button onclick="simConnectWallet('Telegram Wallet')" class="w-full glass-card-interactive p-3 rounded-2xl flex items-center justify-between border border-slate-700/50">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold">TG</div>
+            <div class="text-left">
+              <p class="font-bold text-xs text-slate-100">Telegram Wallet (@wallet)</p>
+              <p class="text-[10px] text-slate-400">Built-in Telegram custodial wallet</p>
+            </div>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+        </button>
+
+        <!-- MyTonWallet -->
+        <button onclick="simConnectWallet('MyTonWallet')" class="w-full glass-card-interactive p-3 rounded-2xl flex items-center justify-between border border-slate-700/50">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold">MT</div>
+            <div class="text-left">
+              <p class="font-bold text-xs text-slate-100">MyTonWallet</p>
+              <p class="text-[10px] text-slate-400">Advanced Web3 TON wallet</p>
+            </div>
+          </div>
+          <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+        </button>
+      </div>
+
+      <button id="disconnect-wallet-btn" onclick="disconnectWallet()" class="hidden w-full bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 font-bold py-2.5 rounded-xl text-xs transition-all">
+        Disconnect Wallet
+      </button>
+    </div>
+  </div>
+
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // --- APP STATE & LOCAL STORAGE ---
+    let state = {
+      balance: parseInt(localStorage.getItem('cyber_balance')) || 24850,
+      energy: parseInt(localStorage.getItem('cyber_energy')) || 1000,
+      maxEnergy: 1000,
+      streak: parseInt(localStorage.getItem('cyber_streak')) || 3,
+      lastClaimedDay: parseInt(localStorage.getItem('cyber_last_claimed')) || 2,
+      connectedWallet: localStorage.getItem('cyber_wallet') || null,
+      tasksCompleted: JSON.parse(localStorage.getItem('cyber_completed_tasks')) || []
+    };
+
+    // Task Definitions
+    const tasksData = [
+      { id: 't1', category: 'social', title: 'Join Telegram Channel', reward: 5000, icon: 'send', link: '#' },
+      { id: 't2', category: 'social', title: 'Follow CYBER on X / Twitter', reward: 3000, icon: 'twitter', link: '#' },
+      { id: 't3', category: 'social', title: 'Subscribe to YouTube', reward: 2500, icon: 'youtube', link: '#' },
+      { id: 't4', category: 'onchain', title: 'Connect TON Web3 Wallet', reward: 10000, icon: 'wallet', link: 'wallet' },
+      { id: 't5', category: 'onchain', title: 'Make 1 Micro Test Transaction', reward: 15000, icon: 'zap', link: '#' },
+      { id: 't6', category: 'partner', title: 'Check Out Cyber DEX Partner', reward: 4000, icon: 'external-link', link: '#' }
+    ];
+
+    // Mock Leaderboard Data
+    const leaderboardData = [
+      { rank: 1, name: 'Satoshi_TON', score: '2,450,100', avatar: 'https://placehold.co/100x100/f59e0b/000000?text=1' },
+      { rank: 2, name: 'WhaleHunter99', score: '1,890,400', avatar: 'https://placehold.co/100x100/94a3b8/000000?text=2' },
+      { rank: 3, name: 'CyberGamer_X', score: '1,420,000', avatar: 'https://placehold.co/100x100/b45309/000000?text=3' },
+      { rank: 4, name: 'AirdropKing', score: '980,250', avatar: 'https://placehold.co/100x100/0284c7/ffffff?text=4' },
+      { rank: 5, name: 'CryptoNaut', score: '850,110', avatar: 'https://placehold.co/100x100/7c3aed/ffffff?text=5' }
+    ];
+
+    // Initialize Page
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initialize Telegram WebApp SDK if available
+      if (window.Telegram && window.Telegram.WebApp) {
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+        if (window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user) {
+          const user = window.Telegram.WebApp.initDataUnsafe.user;
+          document.getElementById('username-display').innerText = user.first_name || 'CyberHunter';
+          if(user.photo_url) document.getElementById('user-avatar').src = user.photo_url;
+        }
+      }
+
+      lucide.createIcons();
+      initParticleBackground();
+      updateUI();
+      renderStreakGrid();
+      renderTasks('all');
+      renderLeaderboard();
+      startCountdown();
+      startEnergyRegen();
+    });
+
+    // --- UI UPDATER ---
+    function updateUI() {
+      document.getElementById('total-balance').innerText = state.balance.toLocaleString();
+      document.getElementById('est-value').innerText = `$${(state.balance * 0.005).toFixed(2)} USDT`;
+      document.getElementById('energy-counter').innerText = `${state.energy} / ${state.maxEnergy}`;
+      
+      const energyPercent = (state.energy / state.maxEnergy) * 100;
+      document.getElementById('energy-bar').style.width = `${energyPercent}%`;
+
+      // Wallet state update
+      if (state.connectedWallet) {
+        document.getElementById('wallet-btn-text').innerText = state.connectedWallet.slice(0, 4) + '...' + state.connectedWallet.slice(-3);
+        document.getElementById('wallet-status-badge').innerText = 'Connected';
+        document.getElementById('wallet-status-badge').className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        document.getElementById('wallet-address-display').innerText = state.connectedWallet;
+        document.getElementById('disconnect-wallet-btn').classList.remove('hidden');
+      } else {
+        document.getElementById('wallet-btn-text').innerText = 'Connect';
+        document.getElementById('wallet-status-badge').innerText = 'Not Connected';
+        document.getElementById('wallet-status-badge').className = 'px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30';
+        document.getElementById('wallet-address-display').innerText = 'None';
+        document.getElementById('disconnect-wallet-btn').classList.add('hidden');
+      }
+
+      // Save state
+      localStorage.setItem('cyber_balance', state.balance);
+      localStorage.setItem('cyber_energy', state.energy);
+    }
+
+    // --- TAP MINING MECHANIC ---
+    function handleTokenTap(e) {
+      if (state.energy <= 0) {
+        showToast('Energy Depleted!', 'Wait for energy to regenerate.', 'text-amber-400');
+        return;
+      }
+
+      const reward = 10;
+      state.balance += reward;
+      state.energy = Math.max(0, state.energy - 10);
+      updateUI();
+
+      // Trigger Floating Click Text
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const floatText = document.createElement('div');
+      floatText.className = 'tap-floating-text';
+      floatText.innerText = `+${reward}`;
+      floatText.style.left = `${x}px`;
+      floatText.style.top = `${y}px`;
+
+      e.currentTarget.appendChild(floatText);
+
+      setTimeout(() => floatText.remove(), 800);
+
+      // Simple Telegram Haptic feedback simulation
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
+      }
+    }
+
+    // Energy Regenerator
+    function startEnergyRegen() {
+      setInterval(() => {
+        if (state.energy < state.maxEnergy) {
+          state.energy = Math.min(state.maxEnergy, state.energy + 3);
+          updateUI();
+        }
+      }, 1500);
+    }
+
+    // --- DAILY STREAK SYSTEM ---
+    function renderStreakGrid() {
+      const grid = document.getElementById('daily-streak-grid');
+      grid.innerHTML = '';
+
+      const streakRewards = [500, 1000, 2500, 5000, 8000, 12000, 25000];
+
+      for (let day = 1; day <= 7; day++) {
+        const reward = streakRewards[day - 1];
+        const isClaimed = day <= state.lastClaimedDay;
+        const isCurrent = day === state.lastClaimedDay + 1;
+
+        const dayCard = document.createElement('div');
+        dayCard.className = `p-2.5 rounded-xl border flex flex-col items-center justify-between transition-all ${
+          isClaimed 
+            ? 'bg-slate-900/40 border-slate-800 text-slate-500' 
+            : isCurrent 
+            ? 'bg-gradient-to-b from-amber-500/20 to-purple-500/20 border-amber-400/50 text-slate-100 glow-gold cursor-pointer active:scale-95' 
+            : 'bg-slate-900/70 border-slate-800 text-slate-400'
+        }`;
+
+        if (isCurrent) {
+          dayCard.onclick = () => claimDailyReward(day, reward);
+        }
+
+        dayCard.innerHTML = `
+          <span class="text-[10px] font-bold ${isCurrent ? 'text-amber-400' : ''}">Day ${day}</span>
+          <i data-lucide="${isClaimed ? 'check-circle-2' : 'gift'}" class="w-5 h-5 my-1 ${isClaimed ? 'text-emerald-500' : isCurrent ? 'text-amber-400 animate-bounce-gentle' : 'text-slate-500'}"></i>
+          <span class="text-[10px] font-orbitron font-bold">${reward >= 1000 ? (reward/1000)+'K' : reward}</span>
+        `;
+        grid.appendChild(dayCard);
+      }
+      lucide.createIcons();
+    }
+
+    function claimDailyReward(day, reward) {
+      state.balance += reward;
+      state.lastClaimedDay = day;
+      localStorage.setItem('cyber_last_claimed', day);
+      
+      confetti({ particleCount: 80, spread: 60, origin: { y: 0.7 } });
+      showToast('Daily Reward Claimed!', `+${reward.toLocaleString()} $CYBER added.`);
+      
+      renderStreakGrid();
+      updateUI();
+    }
+
+    // --- TASKS HUB SYSTEM ---
+    function renderTasks(categoryFilter) {
+      const container = document.getElementById('tasks-container');
+      container.innerHTML = '';
+
+      const filtered = categoryFilter === 'all' 
+        ? tasksData 
+        : tasksData.filter(t => t.category === categoryFilter);
+
+      filtered.forEach(task => {
+        const isDone = state.tasksCompleted.includes(task.id);
+
+        const card = document.createElement('div');
+        card.className = 'glass-card-interactive p-3.5 rounded-2xl flex items-center justify-between border border-slate-800';
+        card.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-cyan-400">
+              <i data-lucide="${task.icon}" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <p class="font-bold text-xs text-slate-200">${task.title}</p>
+              <p class="text-[11px] font-orbitron text-amber-400 font-semibold">+${task.reward.toLocaleString()} $CYBER</p>
+            </div>
+          </div>
+          <button id="btn-task-${task.id}" onclick="completeTask('${task.id}', ${task.reward}, '${task.link}')" 
+            class="${isDone ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950'} text-xs font-bold px-3 py-1.5 rounded-xl transition-all min-w-[80px]">
+            ${isDone ? 'Completed' : 'Start'}
+          </button>
+        `;
+        container.appendChild(card);
+      });
+      lucide.createIcons();
+    }
+
+    function filterTasks(cat) {
+      document.querySelectorAll('.task-tab-btn').forEach(btn => {
+        btn.classList.remove('bg-cyan-500', 'text-slate-950', 'active');
+        btn.classList.add('bg-slate-800', 'text-slate-300');
+      });
+      event.target.classList.remove('bg-slate-800', 'text-slate-300');
+      event.target.classList.add('bg-cyan-500', 'text-slate-950', 'active');
+
+      renderTasks(cat);
+    }
+
+    function completeTask(id, reward, link) {
+      if (state.tasksCompleted.includes(id)) return;
+
+      const btn = document.getElementById(`btn-task-${id}`);
+      btn.innerText = 'Verifying...';
+      btn.classList.add('animate-pulse');
+
+      if (link === 'wallet') {
+        openWalletModal();
+      }
+
+      setTimeout(() => {
+        state.tasksCompleted.push(id);
+        localStorage.setItem('cyber_completed_tasks', JSON.stringify(state.tasksCompleted));
+        state.balance += reward;
+
+        btn.innerText = 'Completed';
+        btn.classList.remove('animate-pulse', 'bg-cyan-500', 'text-slate-950');
+        btn.classList.add('bg-emerald-500/20', 'text-emerald-400', 'border', 'border-emerald-500/30');
+
+        confetti({ particleCount: 50, spread: 50 });
+        showToast('Quest Completed!', `+${reward.toLocaleString()} $CYBER added.`);
+        updateUI();
+      }, 1800);
+    }
+
+    // --- REFERRAL SYSTEM ---
+    function copyReferralLink() {
+      const dummyLink = "https://t.me/CyberAirdropBot?start=ref_123456";
+      navigator.clipboard.writeText(dummyLink);
+      showToast('Link Copied!', 'Referral link copied to clipboard.');
+    }
+
+    function shareReferralTelegram() {
+      const text = encodeURIComponent("Join CyberDrop Airdrop and earn 2,500 free $CYBER tokens instantly!");
+      const url = `https://t.me/share/url?url=https://t.me/CyberAirdropBot?start=ref_123456&text=${text}`;
+      window.open(url, '_blank');
+    }
+
+    // --- LEADERBOARD ---
+    function renderLeaderboard() {
+      const container = document.getElementById('leaderboard-list');
+      container.innerHTML = '';
+
+      leaderboardData.forEach(user => {
+        const card = document.createElement('div');
+        card.className = 'flex items-center justify-between p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80';
+        card.innerHTML = `
+          <div class="flex items-center gap-3">
+            <span class="font-orbitron font-bold text-xs w-5 text-center ${user.rank === 1 ? 'text-amber-400' : user.rank === 2 ? 'text-slate-300' : user.rank === 3 ? 'text-amber-600' : 'text-slate-500'}">#${user.rank}</span>
+            <img src="${user.avatar}" class="w-8 h-8 rounded-full object-cover">
+            <span class="font-bold text-xs text-slate-200">${user.name}</span>
+          </div>
+          <span class="font-orbitron font-extrabold text-xs text-cyan-400">${user.score} <span class="text-[9px] text-slate-500 font-normal">$CYBER</span></span>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // --- WALLET MODAL & SIMULATION ---
+    function openWalletModal() {
+      const modal = document.getElementById('wallet-modal');
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+    }
+
+    function closeWalletModal() {
+      const modal = document.getElementById('wallet-modal');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+    }
+
+    function simConnectWallet(walletName) {
+      const mockAddr = 'EQD' + Math.random().toString(36).substring(2, 10).toUpperCase() + '...' + Math.random().toString(36).substring(2, 6).toUpperCase();
+      state.connectedWallet = mockAddr;
+      localStorage.setItem('cyber_wallet', mockAddr);
+      
+      closeWalletModal();
+      showToast('Wallet Connected!', `Connected with ${walletName}`);
+      updateUI();
+    }
+
+    function disconnectWallet() {
+      state.connectedWallet = null;
+      localStorage.removeItem('cyber_wallet');
+      closeWalletModal();
+      showToast('Wallet Disconnected', 'Your wallet has been unlinked.', 'text-rose-400');
+      updateUI();
+    }
+
+    // --- TAB NAVIGATION ---
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('text-cyan-400');
+        btn.classList.add('text-slate-400');
+        btn.querySelector('span').classList.remove('font-bold');
+      });
+
+      const activeBtn = document.getElementById(`nav-${tabId}`);
+      activeBtn.classList.remove('text-slate-400');
+      activeBtn.classList.add('text-cyan-400');
+      activeBtn.querySelector('span').classList.add('font-bold');
+    }
+
+    // --- COUNTDOWN TIMER ---
+    function startCountdown() {
+      let totalSecs = (14 * 86400) + (8 * 3600) + (42 * 60) + 19;
+      setInterval(() => {
+        if (totalSecs <= 0) return;
+        totalSecs--;
+        const d = Math.floor(totalSecs / 86400);
+        const h = Math.floor((totalSecs % 86400) / 3600);
+        const m = Math.floor((totalSecs % 3600) / 60);
+        const s = totalSecs % 60;
+
+        document.getElementById('cd-days').innerText = String(d).padStart(2, '0');
+        document.getElementById('cd-hours').innerText = String(h).padStart(2, '0');
+        document.getElementById('cd-mins').innerText = String(m).padStart(2, '0');
+        document.getElementById('cd-secs').innerText = String(s).padStart(2, '0');
+      }, 1000);
+    }
+
+    // --- TOAST BANNER SYSTEM ---
+    function showToast(title, msg) {
+      const banner = document.getElementById('toast-banner');
+      document.getElementById('toast-title').innerText = title;
+      document.getElementById('toast-msg').innerText = msg;
+
+      banner.classList.remove('-translate-y-24', 'opacity-0');
+      banner.classList.add('translate-y-0', 'opacity-100');
+
+      setTimeout(() => {
+        banner.classList.remove('translate-y-0', 'opacity-100');
+        banner.classList.add('-translate-y-24', 'opacity-0');
+      }, 3000);
+    }
+
+    // --- BACKGROUND PARTICLE CANVAS ---
+    function initParticleBackground() {
+      const canvas = document.getElementById('particle-canvas');
+      const ctx = canvas.getContext('2d');
+
+      let width = (canvas.width = window.innerWidth);
+      let height = (canvas.height = window.innerHeight);
+
+      window.addEventListener('resize', () => {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+      });
+
+      const particles = Array.from({ length: 35 }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        radius: Math.random() * 2 + 0.5,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        color: Math.random() > 0.5 ? 'rgba(0, 240, 255, ' : 'rgba(168, 85, 247, ',
+        alpha: Math.random() * 0.5 + 0.2
+      }));
+
+      function animate() {
+        ctx.clearRect(0, 0, width, height);
+
+        particles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+
+          if (p.x < 0) p.x = width;
+          if (p.x > width) p.x = 0;
+          if (p.y < 0) p.y = height;
+          if (p.y > height) p.y = 0;
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fillStyle = p.color + p.alpha + ')';
+          ctx.fill();
+        });
+
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+    }
+  </script>
+</body>
+</html>
